@@ -430,6 +430,94 @@ void cblas_sgemm_v3(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum C
     }
 }
 
+void cblas_sgemm_v4(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum CBLAS_TRANSPOSE TransA, OPENBLAS_CONST enum CBLAS_TRANSPOSE TransB,
+                OPENBLAS_CONST blasint M, OPENBLAS_CONST blasint N, OPENBLAS_CONST blasint K,
+                OPENBLAS_CONST float alpha,
+                OPENBLAS_CONST float *A, OPENBLAS_CONST blasint lda,
+                OPENBLAS_CONST float *B, OPENBLAS_CONST blasint ldb,
+                OPENBLAS_CONST float beta,
+                float *C, OPENBLAS_CONST blasint ldc){
+// https://github.com/flame/how-to-optimize-gemm/wiki/Optimization_1x4_9
+    if(Order == CblasRowMajor){
+        if(TransA == CblasNoTrans || TransA == CblasConjNoTrans){
+            if(TransB == CblasNoTrans|| CblasNoTrans== CblasConjNoTrans){
+                int m, n, k;
+                for(m=0;m<M;m+=4){
+                    for(n=0;n<N;n+=4){
+                        // TODO: ensure m is divided by 4 !!!
+                        register float 
+			    c_val_0_0, c_val_0_1, c_val_0_2, c_val_0_3,
+			    c_val_1_0, c_val_1_1, c_val_1_2, c_val_1_3,
+			    c_val_2_0, c_val_2_1, c_val_2_2, c_val_2_3,
+			    c_val_3_0, c_val_3_1, c_val_3_2, c_val_3_3;
+
+			c_val_0_0=0; c_val_0_1=0; c_val_0_2=0; c_val_0_3=0;
+			c_val_1_0=0; c_val_1_1=0; c_val_1_2=0; c_val_1_3=0;
+			c_val_2_0=0; c_val_2_1=0; c_val_2_2=0; c_val_2_3=0;
+			c_val_3_0=0; c_val_3_1=0; c_val_3_2=0; c_val_3_3=0;
+
+                        float * ptr_a_0 = (float*)&A[(m+0)*lda];
+                        float * ptr_a_1 = (float*)&A[(m+1)*lda];
+                        float * ptr_a_2 = (float*)&A[(m+2)*lda];
+                        float * ptr_a_3 = (float*)&A[(m+3)*lda];
+			for(k=0;k<K;k++){
+			    register float b_val_0, b_val_1, b_val_2, b_val_3;
+			    b_val_0 = B[k*ldb+n];
+			    b_val_1 = B[k*ldb+n+1];
+			    b_val_2 = B[k*ldb+n+2];
+			    b_val_3 = B[k*ldb+n+3];
+
+			    c_val_0_0 += *(ptr_a_0+k) * b_val_0;
+			    c_val_1_0 += *(ptr_a_1+k) * b_val_0;
+			    c_val_2_0 += *(ptr_a_2+k) * b_val_0;
+			    c_val_3_0 += *(ptr_a_3+k) * b_val_0;
+
+			    c_val_0_1 += *(ptr_a_0+k) * b_val_1;
+			    c_val_1_1 += *(ptr_a_1+k) * b_val_1;
+			    c_val_2_1 += *(ptr_a_2+k) * b_val_1;
+			    c_val_3_1 += *(ptr_a_3+k) * b_val_1;
+
+			    c_val_0_2 += *(ptr_a_0+k) * b_val_2;
+			    c_val_1_2 += *(ptr_a_1+k) * b_val_2;
+			    c_val_2_2 += *(ptr_a_2+k) * b_val_2;
+			    c_val_3_2 += *(ptr_a_3+k) * b_val_2;
+
+			    c_val_0_3 += *(ptr_a_0+k) * b_val_3;
+			    c_val_1_3 += *(ptr_a_1+k) * b_val_3;
+			    c_val_2_3 += *(ptr_a_2+k) * b_val_3;
+			    c_val_3_3 += *(ptr_a_3+k) * b_val_3;
+			}
+                        C[(m+0)*ldc+n+0] = c_val_0_0*alpha + C[(m+0)*ldc+n+0]*beta;
+                        C[(m+1)*ldc+n+0] = c_val_1_0*alpha + C[(m+1)*ldc+n+0]*beta;
+                        C[(m+2)*ldc+n+0] = c_val_2_0*alpha + C[(m+2)*ldc+n+0]*beta;
+                        C[(m+3)*ldc+n+0] = c_val_3_0*alpha + C[(m+3)*ldc+n+0]*beta;
+
+                        C[(m+0)*ldc+n+1] = c_val_0_1*alpha + C[(m+0)*ldc+n+1]*beta;
+                        C[(m+1)*ldc+n+1] = c_val_1_1*alpha + C[(m+1)*ldc+n+1]*beta;
+                        C[(m+2)*ldc+n+1] = c_val_2_1*alpha + C[(m+2)*ldc+n+1]*beta;
+                        C[(m+3)*ldc+n+1] = c_val_3_1*alpha + C[(m+3)*ldc+n+1]*beta;
+
+                        C[(m+0)*ldc+n+2] = c_val_0_2*alpha + C[(m+0)*ldc+n+2]*beta;
+                        C[(m+1)*ldc+n+2] = c_val_1_2*alpha + C[(m+1)*ldc+n+2]*beta;
+                        C[(m+2)*ldc+n+2] = c_val_2_2*alpha + C[(m+2)*ldc+n+2]*beta;
+                        C[(m+3)*ldc+n+2] = c_val_3_2*alpha + C[(m+3)*ldc+n+2]*beta;
+
+                        C[(m+0)*ldc+n+3] = c_val_0_3*alpha + C[(m+0)*ldc+n+3]*beta;
+                        C[(m+1)*ldc+n+3] = c_val_1_3*alpha + C[(m+1)*ldc+n+3]*beta;
+                        C[(m+2)*ldc+n+3] = c_val_2_3*alpha + C[(m+2)*ldc+n+3]*beta;
+                        C[(m+3)*ldc+n+3] = c_val_3_3*alpha + C[(m+3)*ldc+n+3]*beta;
+                    }
+                }
+            }else{
+
+            }
+        }else{
+
+        }
+    } else {
+        //
+    }
+}
 #define LOOP 400
 #define SKIP_LOOP 2
 
@@ -525,6 +613,8 @@ int main(int argc, char ** argv){
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v2);
     else if(run_ver == 3)
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v3);
+    else if(run_ver == 4)
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v4);
 
 #if 0
     printf("mat_c:\n");
