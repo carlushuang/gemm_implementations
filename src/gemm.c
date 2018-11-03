@@ -773,6 +773,9 @@ int main(int argc, char ** argv){
 
         memcpy(mat_c->data, mat_c_2->data, mat_c->col*mat_c->row*sizeof(float));
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c, loop, cblas_sgemm_v8);
+
+        memcpy(mat_c->data, mat_c_2->data, mat_c->col*mat_c->row*sizeof(float));
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c, loop, cblas_sgemm_v9);
     }
     // per run process
     else if(run_ver == 0)
@@ -793,6 +796,8 @@ int main(int argc, char ** argv){
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v7);
     else if(run_ver == 8)
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v8);
+    else if(run_ver == 9)
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v9);
 
     if(need_valid){
         //validate
