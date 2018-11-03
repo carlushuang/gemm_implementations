@@ -10,4 +10,20 @@ void cblas_sgemm_v6(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum C
                 OPENBLAS_CONST float beta,
                 float *C, OPENBLAS_CONST blasint ldc);
 
+void cblas_sgemm_v7(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum CBLAS_TRANSPOSE TransA, OPENBLAS_CONST enum CBLAS_TRANSPOSE TransB,
+                OPENBLAS_CONST blasint M, OPENBLAS_CONST blasint N, OPENBLAS_CONST blasint K,
+                OPENBLAS_CONST float alpha,
+                OPENBLAS_CONST float *A, OPENBLAS_CONST blasint lda,
+                OPENBLAS_CONST float *B, OPENBLAS_CONST blasint ldb,
+                OPENBLAS_CONST float beta,
+                float *C, OPENBLAS_CONST blasint ldc);
+
+void cblas_sgemm_v8(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum CBLAS_TRANSPOSE TransA, OPENBLAS_CONST enum CBLAS_TRANSPOSE TransB,
+                OPENBLAS_CONST blasint M, OPENBLAS_CONST blasint N, OPENBLAS_CONST blasint K,
+                OPENBLAS_CONST float alpha,
+                OPENBLAS_CONST float *A, OPENBLAS_CONST blasint lda,
+                OPENBLAS_CONST float *B, OPENBLAS_CONST blasint ldb,
+                OPENBLAS_CONST float beta,
+                float *C, OPENBLAS_CONST blasint ldc);
+
 #endif

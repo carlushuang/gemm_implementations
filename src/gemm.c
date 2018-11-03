@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "gemm_opt.h"
 
@@ -23,7 +24,7 @@ double what_time_is_it_now()
 
 #define MAT_M  512
 #define MAT_N  256
-#define MAT_K  272
+#define MAT_K  512
 
 #define MAT_ALPHA .5
 #define MAT_BETA  1.2
@@ -102,13 +103,15 @@ int matrix_f32_leading(matrix_f32_t * mat, int is_c /* if is output buffer*/){
     }
 }
 
+#define MEM_ALIGN_BYTE 16
+
 matrix_f32_t * matrix_f32_create(int row, int col, int layout, int trans){
     matrix_f32_t * mat = (matrix_f32_t*)malloc(sizeof(matrix_f32_t));
     mat->row = row;
     mat->col = col;
     mat->layout = layout;
     mat->trans = trans;
-    mat->data = (float *)malloc(sizeof(float) * row * col);
+    mat->data = (float *) aligned_alloc(MEM_ALIGN_BYTE, sizeof(float) * row * col);
     rand_matrix_f32(mat->data, row * col);
     return mat;
 }
@@ -118,7 +121,7 @@ matrix_f32_t * matrix_f32_create_copy(matrix_f32_t * mat_rhs){
     mat->col = mat_rhs->col;
     mat->layout = mat_rhs->layout;
     mat->trans = mat_rhs->trans;
-    mat->data = (float *)malloc(sizeof(float) * mat->row * mat->col);
+    mat->data = (float *) aligned_alloc(MEM_ALIGN_BYTE, sizeof(float) * mat->row * mat->col);
     memcpy(mat->data, mat_rhs->data, sizeof(float) * mat->row * mat->col);
     return mat;
 }
@@ -702,6 +705,7 @@ int main(int argc, char ** argv){
     int loop;
     int run_ver;
     int verbose;
+    int need_valid;
 
     trans = TRANS_NO_TRANS;
     layout = LAYOUT_ROW_MAJOR;
@@ -717,6 +721,7 @@ int main(int argc, char ** argv){
 
     run_ver = get_int_value(-1, "VER");
     verbose = get_int_value(0, "V");
+    need_valid = get_int_value(0, "VALID");
 
     alpha = MAT_ALPHA;
     beta = MAT_BETA;
@@ -762,6 +767,12 @@ int main(int argc, char ** argv){
 
         memcpy(mat_c->data, mat_c_2->data, mat_c->col*mat_c->row*sizeof(float));
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c, loop, cblas_sgemm_v6);
+
+        memcpy(mat_c->data, mat_c_2->data, mat_c->col*mat_c->row*sizeof(float));
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c, loop, cblas_sgemm_v7);
+
+        memcpy(mat_c->data, mat_c_2->data, mat_c->col*mat_c->row*sizeof(float));
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c, loop, cblas_sgemm_v8);
     }
     // per run process
     else if(run_ver == 0)
@@ -778,6 +789,29 @@ int main(int argc, char ** argv){
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v5);
     else if(run_ver == 6)
         BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v6);
+    else if(run_ver == 7)
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v7);
+    else if(run_ver == 8)
+        BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c_2, loop, cblas_sgemm_v8);
+
+    if(need_valid){
+        //validate
+        int x;
+        int invalid_cnt = 0;
+        for(x=0;x<(mat_c->col*mat_c->row);x++){
+            float delta = fabsf(mat_c->data[x] - mat_c_2->data[x]);
+            //printf("%3d golda:%f -- impl:%f, delta:%f\n", x, mat_c->data[x], mat_c_2->data[x], delta);
+            if(delta > 0.0001f){
+                if(invalid_cnt<10)
+                    printf("## not valid at idx:%-4d, golden:%f, impl:%f, delta:%f\n",
+                        x, mat_c->data[x],  mat_c_2->data[x], delta);
+                invalid_cnt++;
+            }
+        }
+
+        if(!invalid_cnt)
+            printf("## impl valid!\n");
+    }
 
     if(verbose){
         printf("mat_c:\n");
