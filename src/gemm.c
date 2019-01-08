@@ -656,8 +656,30 @@ void cblas_sgemm_v5(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum C
     }
 }
 
-#define LOOP 200
-#define SKIP_LOOP 20
+// https://devtalk.nvidia.com/default/topic/482834/how-to-compute-gflops-for-gemm-blas/
+static unsigned long long sgemm_flop(unsigned long long M, unsigned long long N, unsigned long long K,
+    float alpha, float beta)
+{
+    if(alpha == 1.f && beta == 0.f){
+        // M*N*K mul, M*N*(K-1) add
+        return M*N*(2*K-1);
+    }
+    if(alpha == 1.f && beta != 0.f){
+        // M*N*K mul, M*N*(K-1) add, M*N beta mul, M*N beta add
+        return M*N*(2*K + 1);
+    }
+    if(alpha != 1.f && beta == 0.f){
+        // M*N*K mul, M*N*(K-1) add, M*N alpha mul
+        return M*N*(2*K);
+    }
+
+    // alpha != 1.f, beta != 0.f
+    // M*N*K mul, M*N*(K-1) add, M*N alpha mul, M*N beta mul, M*N beta add
+    return M*N*(2*K+2);
+}
+
+#define LOOP 100
+#define SKIP_LOOP 10
 #define SLEEP_USEC 50*1000
 
 #define BENCH_SGEMM(m, n, k, alpha, beta, mat_a, mat_b, mat_c, loop, sgemm_func ) \
@@ -682,8 +704,15 @@ void cblas_sgemm_v5(OPENBLAS_CONST enum CBLAS_ORDER Order, OPENBLAS_CONST enum C
                 mat_c->data, matrix_f32_leading(mat_c, 1) /*n*/);   \
         }                                                           \
         double cost_time = what_time_is_it_now()-start_time;        \
-        printf("%16s: cost_per_loop:%fms\n",                        \
-                #sgemm_func,                                        \
+        unsigned long long flop = sgemm_flop((unsigned long long)m, \
+                                            (unsigned long long)n,  \
+                                            (unsigned long long)k,  \
+                                            (float)alpha,           \
+                                            (float)beta);           \
+        double cost_sec = cost_time/(total_loop-SKIP_LOOP);         \
+        double gflops = flop/cost_sec/(1e9);                               \
+        printf("%16s: gflops: %f, cost_per_loop:%fms\n",             \
+                #sgemm_func,   gflops,                               \
                 (cost_time/(total_loop-SKIP_LOOP))*1000   );   \
     }while(0)
 
@@ -727,8 +756,10 @@ int main(int argc, char ** argv){
     beta = MAT_BETA;
     loop = get_int_value(LOOP, "LOOP");
 
-    printf("M:%d, N:%d, K:%d, ALPHA:%f, BETA:%f, LOOP:%d, TRANS:%s, LAYOUT:%s, ver:%d\n",
-            m,n,k,alpha, beta, loop, get_trans_str(trans), get_layout_str(layout), run_ver);
+    printf("M:%d, N:%d, K:%d, ALPHA:%f, BETA:%f, LOOP:%d, TRANS:%s, LAYOUT:%s, ver:%d, openblas:%s\n",
+            m,n,k,alpha, beta, loop, get_trans_str(trans), get_layout_str(layout), run_ver,
+                (openblas_get_parallel()==1)?"mul":"sig");
+    openblas_set_num_threads(1);// force openblas single thread
 
     mat_a = matrix_f32_create(m, k, layout, trans);
     mat_b = matrix_f32_create(k, n, layout, trans);
